@@ -38,19 +38,114 @@ LOG = pathlib.Path("reports/runbook-run.jsonl")
 URL = {"a": "http://127.0.0.1:8001", "b": "http://127.0.0.1:8002"}
 
 
-def step(n, name, **kw):
-    """TODO: ghi 1 dòng {ts, iso, step, name, ...} vào LOG."""
-    raise NotImplementedError
+def step(n: int, name: str, **kw) -> dict:
+    """Ghi 1 dòng {ts, iso, step, name, ...} vào LOG và in ra stdout."""
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    rec = {
+        "ts": time.time(),
+        "iso": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+        "step": n,
+        "name": name,
+        **kw,
+    }
+    with LOG.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(rec) + "\n")
+    print(f"RUNBOOK [Bước {n}: {name}]", json.dumps(rec))
+    return rec
 
 
 def confirm(auto: bool, msg: str) -> bool:
-    """TODO: auto=True -> True; ngược lại hỏi y/N. Đừng bỏ hàm này đi."""
-    raise NotImplementedError
+    """auto=True -> True; ngược lại hỏi y/N."""
+    if auto:
+        return True
+    try:
+        ans = input(f"{msg} [y/N]: ").strip().lower()
+        return ans in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        return False
 
 
 def run(primary: str, target: str, backend: str, auto: bool) -> dict:
-    """TODO: 7 bước ở trên."""
-    raise NotImplementedError
+    """Thực hiện đầy đủ 7 bước của runbook."""
+    t_start = time.time()
+
+    # Bước 1: xac_nhan_outage
+    p_ready = False
+    try:
+        r = httpx.get(f"{URL[primary]}/readyz", timeout=1.5)
+        p_ready = (r.status_code == 200)
+    except Exception:
+        p_ready = False
+
+    t_alive = False
+    try:
+        r = httpx.get(f"{URL[target]}/healthz", timeout=1.5)
+        t_alive = (r.status_code == 200)
+    except Exception:
+        t_alive = False
+
+    step(1, "xac_nhan_outage", primary=primary, target=target,
+         primary_ready=p_ready, target_alive=t_alive)
+
+    if not confirm(auto, f"Xác nhận kích hoạt failover từ {primary} -> {target}?"):
+        print("Huỷ failover theo yêu cầu của operator.")
+        return {"ok": False, "reason": "aborted_by_operator"}
+
+    # Bước 2: thong_bao_incident
+    step(2, "thong_bao_incident", incident_level="P1",
+         msg=f"Operator phat hien su co tren region-{primary}, khoi dong dong ho failover sang region-{target}")
+
+    # Bước 3: scale_gpu_pool (gọi failover.failover EXACTLY ONCE)
+    fo_res = fo.failover(target=target, backend=backend, wait=60.0)
+    step(3, "scale_gpu_pool", target=target, failover_result=fo_res)
+
+    if not fo_res.get("ok"):
+        return {"ok": False, "step": 3, "error": "failover_failed", "failover_result": fo_res}
+
+    # Bước 4: verify_state_replica
+    step(4, "verify_state_replica",
+         rpo_seconds=fo_res.get("rpo_seconds"),
+         docs_lost=fo_res.get("docs_lost"),
+         embed_model_version=fo_res.get("embed_model_version"))
+
+    # Bước 5: dns_cutover
+    step(5, "dns_cutover", active_region=target, ok=fo_res.get("ok"))
+
+    # Bước 6: verify_golden_signals (10 request thật vào edge)
+    latencies = []
+    errors = 0
+    with httpx.Client(timeout=3.0) as client:
+        for i in range(10):
+            t_req = time.time()
+            try:
+                r = client.get("http://127.0.0.1:8080/v1/infer", params={"q": f"kiem tra {i}"})
+                if r.status_code != 200:
+                    errors += 1
+            except Exception:
+                errors += 1
+            latencies.append((time.time() - t_req) * 1000)
+            time.sleep(0.1)
+
+    latencies.sort()
+    p95 = round(latencies[int(len(latencies) * 0.95)], 1) if latencies else 0
+    step(6, "verify_golden_signals", total_requests=10, errors=errors,
+         error_rate=round(errors / 10.0, 2), p95_latency_ms=p95)
+
+    # Bước 7: post_incident
+    elapsed = round(time.time() - t_start, 2)
+    step(7, "post_incident", status="RESOLVED", elapsed_seconds=elapsed,
+         command="python tools/measure_rto.py --loadgen reports/drill-2-withdr.jsonl --target-rto 300")
+
+    return {
+        "ok": True,
+        "primary": primary,
+        "target": target,
+        "backend": backend,
+        "rpo_seconds": fo_res.get("rpo_seconds"),
+        "docs_lost": fo_res.get("docs_lost"),
+        "elapsed_seconds": elapsed,
+        "p95_latency_ms": p95,
+    }
 
 
 if __name__ == "__main__":
