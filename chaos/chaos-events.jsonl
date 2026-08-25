@@ -6,3 +6,5 @@
 {"ts": 1787636050.4956403, "iso": "2026-08-25T05:34:10", "action": "kill", "region": "a", "mode": "netblock", "backend": "bare", "mock": true, "other_region": "b", "other_alive": true, "forced_both": false, "note": "t_outage_start \u2014 moc 0 cua RTO clock"}
 {"ts": 1787636152.7452743, "iso": "2026-08-25T05:35:52", "action": "restore", "region": "a", "method": "RESUME", "pid": 24272}
 {"ts": 1787636174.2307982, "iso": "2026-08-25T05:36:14", "action": "kill", "region": "a", "mode": "netblock", "backend": "bare", "mock": true, "other_region": "b", "other_alive": true, "forced_both": false, "note": "t_outage_start \u2014 moc 0 cua RTO clock"}
+{"ts": 1787654753.7999682, "iso": "2026-08-25T10:45:53", "action": "kill", "region": "a", "mode": "netblock", "backend": "bare", "mock": true, "other_region": "b", "other_alive": true, "forced_both": false, "note": "t_outage_start \u2014 moc 0 cua RTO clock"}
+{"ts": 1787654782.595348, "iso": "2026-08-25T10:46:22", "action": "restore", "region": "a", "method": "RESUME", "pid": 8004}

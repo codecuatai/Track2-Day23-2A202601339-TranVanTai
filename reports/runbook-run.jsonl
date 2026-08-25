@@ -1,7 +1,7 @@
-{"ts": 1787636192.556606, "iso": "2026-08-25T05:36:32", "step": 1, "name": "xac_nhan_outage", "primary": "a", "target": "b", "primary_ready": false, "target_alive": true}
-{"ts": 1787636192.5576077, "iso": "2026-08-25T05:36:32", "step": 2, "name": "thong_bao_incident", "incident_level": "P1", "msg": "Operator phat hien su co tren region-a, khoi dong dong ho failover sang region-b"}
-{"ts": 1787636199.4140596, "iso": "2026-08-25T05:36:39", "step": 3, "name": "scale_gpu_pool", "target": "b", "failover_result": {"ok": true, "target": "b", "backend": "fs", "rpo_seconds": 6.0, "docs_lost": 3, "embed_model_version": "embed-model=vi-e5-base@v3", "waited_s": 6.62}}
-{"ts": 1787636199.4140596, "iso": "2026-08-25T05:36:39", "step": 4, "name": "verify_state_replica", "rpo_seconds": 6.0, "docs_lost": 3, "embed_model_version": "embed-model=vi-e5-base@v3"}
-{"ts": 1787636199.415061, "iso": "2026-08-25T05:36:39", "step": 5, "name": "dns_cutover", "active_region": "b", "ok": true}
-{"ts": 1787636206.3620512, "iso": "2026-08-25T05:36:46", "step": 6, "name": "verify_golden_signals", "total_requests": 10, "errors": 2, "error_rate": 0.2, "p95_latency_ms": 2169.4}
-{"ts": 1787636206.3630636, "iso": "2026-08-25T05:36:46", "step": 7, "name": "post_incident", "status": "RESOLVED", "elapsed_seconds": 15.82, "command": "python tools/measure_rto.py --loadgen reports/drill-2-withdr.jsonl --target-rto 300"}
+{"ts": 1787654756.328279, "iso": "2026-08-25T10:45:56", "step": 1, "name": "xac_nhan_outage", "primary": "a", "target": "b", "primary_ready": false, "target_alive": true}
+{"ts": 1787654756.328279, "iso": "2026-08-25T10:45:56", "step": 2, "name": "thong_bao_incident", "incident_level": "P1", "msg": "Operator phat hien su co tren region-a, khoi dong dong ho failover sang region-b"}
+{"ts": 1787654762.9126687, "iso": "2026-08-25T10:46:02", "step": 3, "name": "scale_gpu_pool", "target": "b", "failover_result": {"ok": true, "target": "b", "backend": "fs", "rpo_seconds": 16.02, "docs_lost": 8, "embed_model_version": "embed-model=vi-e5-base@v3", "waited_s": 6.3}}
+{"ts": 1787654762.9126687, "iso": "2026-08-25T10:46:02", "step": 4, "name": "verify_state_replica", "rpo_seconds": 16.02, "docs_lost": 8, "embed_model_version": "embed-model=vi-e5-base@v3"}
+{"ts": 1787654762.9138072, "iso": "2026-08-25T10:46:02", "step": 5, "name": "dns_cutover", "active_region": "b", "ok": true}
+{"ts": 1787654771.8268754, "iso": "2026-08-25T10:46:11", "step": 6, "name": "verify_golden_signals", "total_requests": 10, "errors": 0, "error_rate": 0.0, "p95_latency_ms": 363.1, "ttl_wait_s": 5.1, "ok": true}
+{"ts": 1787654771.8268754, "iso": "2026-08-25T10:46:11", "step": 7, "name": "post_incident", "status": "RESOLVED", "elapsed_seconds": 17.61, "command": "python tools/measure_rto.py --loadgen reports/drill-2-withdr.jsonl --target-rto 300"}

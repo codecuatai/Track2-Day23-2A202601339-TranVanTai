@@ -25,6 +25,8 @@ Chạy:  python dr/runbook.py --primary a --target b --backend fs
 """
 import argparse
 import json
+import math
+import os
 import pathlib
 import sys
 import time
@@ -36,6 +38,7 @@ from dr import failover as fo  # noqa: E402
 
 LOG = pathlib.Path("reports/runbook-run.jsonl")
 URL = {"a": "http://127.0.0.1:8001", "b": "http://127.0.0.1:8002"}
+EDGE_TTL_SECONDS = float(os.environ.get("EDGE_TTL_SECONDS", "5"))
 
 
 def step(n: int, name: str, **kw) -> dict:
@@ -87,6 +90,14 @@ def run(primary: str, target: str, backend: str, auto: bool) -> dict:
     step(1, "xac_nhan_outage", primary=primary, target=target,
          primary_ready=p_ready, target_alive=t_alive)
 
+    # Không được fail over chỉ vì operator chạy nhầm lệnh: primary phải thực sự
+    # không ready và target phải còn sống trước khi mở incident/cutover.
+    if p_ready or not t_alive:
+        reason = "primary_still_ready" if p_ready else "target_not_alive"
+        step(7, "post_incident", status="ABORTED", reason=reason)
+        return {"ok": False, "reason": reason, "primary_ready": p_ready,
+                "target_alive": t_alive}
+
     if not confirm(auto, f"Xác nhận kích hoạt failover từ {primary} -> {target}?"):
         print("Huỷ failover theo yêu cầu của operator.")
         return {"ok": False, "reason": "aborted_by_operator"}
@@ -111,7 +122,10 @@ def run(primary: str, target: str, backend: str, auto: bool) -> dict:
     # Bước 5: dns_cutover
     step(5, "dns_cutover", active_region=target, ok=fo_res.get("ok"))
 
-    # Bước 6: verify_golden_signals (10 request thật vào edge)
+    # Bước 6: verify_golden_signals (10 request thật vào edge).
+    # Edge cố ý cache region trong TTL; kiểm tra ngay sau cutover sẽ còn đọc
+    # upstream cũ và tạo false negative. Chờ TTL hết trước khi xác nhận incident.
+    time.sleep(EDGE_TTL_SECONDS + 0.1)
     latencies = []
     errors = 0
     with httpx.Client(timeout=3.0) as client:
@@ -127,17 +141,21 @@ def run(primary: str, target: str, backend: str, auto: bool) -> dict:
             time.sleep(0.1)
 
     latencies.sort()
-    p95 = round(latencies[int(len(latencies) * 0.95)], 1) if latencies else 0
+    p95_index = min(len(latencies) - 1, max(0, math.ceil(len(latencies) * 0.95) - 1))
+    p95 = round(latencies[p95_index], 1) if latencies else 0
+    golden_ok = errors == 0 and p95 < 500
     step(6, "verify_golden_signals", total_requests=10, errors=errors,
-         error_rate=round(errors / 10.0, 2), p95_latency_ms=p95)
+         error_rate=round(errors / 10.0, 2), p95_latency_ms=p95,
+         ttl_wait_s=EDGE_TTL_SECONDS + 0.1, ok=golden_ok)
 
     # Bước 7: post_incident
     elapsed = round(time.time() - t_start, 2)
-    step(7, "post_incident", status="RESOLVED", elapsed_seconds=elapsed,
+    status = "RESOLVED" if golden_ok else "DEGRADED"
+    step(7, "post_incident", status=status, elapsed_seconds=elapsed,
          command="python tools/measure_rto.py --loadgen reports/drill-2-withdr.jsonl --target-rto 300")
 
     return {
-        "ok": True,
+        "ok": golden_ok,
         "primary": primary,
         "target": target,
         "backend": backend,
@@ -145,6 +163,7 @@ def run(primary: str, target: str, backend: str, auto: bool) -> dict:
         "docs_lost": fo_res.get("docs_lost"),
         "elapsed_seconds": elapsed,
         "p95_latency_ms": p95,
+        "golden_signals_ok": golden_ok,
     }
 
 

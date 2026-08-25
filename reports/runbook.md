@@ -4,13 +4,13 @@ Runbook chuẩn vận hành lúc 3h sáng cho sự cố Region chính (Region A)
 
 | # | Bước | Lệnh | Biết là xong khi | Ai làm |
 |---|---|---|---|---|
-| 1 | Xác nhận outage | `python chaos/kill_region.py status` | `a.ready=false` (hoặc timeout) 3 lần liên tiếp; `b.alive=true` | SRE On-call |
-| 2 | Mở incident + bấm giờ RTO | `python dr/runbook.py --primary a --target b --backend fs` | Timestamp mở incident được ghi vào `reports/runbook-run.jsonl` | SRE On-call |
-| 3 | Restore state ở region phụ | `python state/snapshot.py get --region b --backend fs` | `state/region-b/vectors.sqlite` và model weights được restore thành công | Automation / SRE |
-| 4 | Scale pool warm→full | `python -c "open('state/region-b/pool_state','w').write('full')"` | `curl http://localhost:8002/readyz` trả HTTP 200 (warm-up xong) | Automation / SRE |
-| 5 | DNS/LB cutover | `python -c "open('edge/active_region','w').write('b')"` | `curl http://localhost:8080/edge/state` trả về `active_region: b` | Automation / SRE |
-| 6 | Verify golden signals | `curl http://localhost:8080/v1/infer` | 10 request liên tiếp trả về HTTP 200, Error rate = 0%, p95 latency < 500ms | SRE On-call |
-| 7 | Đo RTO + postmortem | `python tools/measure_rto.py --loadgen reports/drill-2-withdr.jsonl --target-rto 300` | Output trả về `"valid": true`, `"rto_verdict": "PASS"`, RTO <= 300s | Incident Commander |
+| 1 | Xác nhận outage | `curl http://localhost:8001/readyz` và `curl http://localhost:8002/healthz` | Region A timeout/không 200, Region B `/healthz` trả 200; xác nhận lại 3 lần | SRE On-call |
+| 2 | Mở incident + bấm giờ RTO | `python dr/runbook.py --primary a --target b --backend fs` | Hiện prompt `Xác nhận kích hoạt failover...`; operator gõ `y`, rồi có dòng `thong_bao_incident` trong `reports/runbook-run.jsonl` | SRE On-call |
+| 3 | Restore state ở region phụ | `Get-Content reports/failover-events.jsonl -Tail 5` | Dòng `2_restore_snapshot` có `rpo_seconds`, `docs_lost`, `embed_model_version`; bước này do cùng một lần chạy runbook thực hiện | Automation / SRE |
+| 4 | Scale pool warm→full và chờ ready | `curl http://localhost:8002/readyz` | Dòng `4_wait_ready` có `ready:true`, sau đó endpoint trả HTTP 200; **không ghi tay** `pool_state` | Automation / SRE |
+| 5 | DNS/LB cutover | `curl http://localhost:8080/edge/state` | Dòng `5_dns_cutover` chỉ xuất hiện sau bước 4; `active_region: b`; **không ghi tay** `edge/active_region` | Automation / SRE |
+| 6 | Verify golden signals | `Get-Content reports/runbook-run.jsonl -Tail 2` | Dòng `verify_golden_signals` có `total_requests:10`, `errors:0`, `error_rate:0.0`, `p95_latency_ms < 500`, `ok:true`; runbook tự chờ hết Edge TTL trước khi kiểm tra | SRE On-call |
+| 7 | Đo RTO + đóng incident | `python tools/measure_rto.py --loadgen reports/drill-2-withdr.jsonl --target-rto 300` | Output có `"valid": true`, `"rto_verdict": "PASS"`; dòng `post_incident` là `RESOLVED` (không phải `DEGRADED`) | Incident Commander |
 
 ---
 

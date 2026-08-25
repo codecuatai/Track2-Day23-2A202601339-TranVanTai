@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b0f19">
+  <title>AI Serving DR Dashboard | High Availability Control Center</title>
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top Navigation / Navbar -->
+    <header class="navbar">
+      <div class="brand-section">
+        <div class="brand-logo">DR</div>
+        <div class="brand-info">
+          <h1>AI Serving Disaster Recovery Dashboard</h1>
+          <p>Multi-Region High Availability & Failover Control System</p>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <div id="edge-status-pill" class="status-pill online">
+          <span class="status-dot"></span> Checking Status...
+        </div>
+      </div>
+    </header>
+
+    <!-- Key Metrics Grid -->
+    <section class="metrics-grid" aria-label="System Metrics">
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">ACTIVE REGION (DNS)</span>
+          <span class="metric-icon">🌐</span>
+        </div>
+        <div id="active-region-badge" class="metric-value">Region A</div>
+        <div class="metric-subtext">Edge DNS Pointer: <code>edge/active_region</code></div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">EDGE DNS CACHE AGE</span>
+          <span class="metric-icon">⏳</span>
+        </div>
+        <div id="cache-age-val" class="metric-value">0s / 5s</div>
+        <div class="metric-subtext">Simulated DNS TTL window</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">LAST INFERENCE LATENCY</span>
+          <span class="metric-icon">⚡</span>
+        </div>
+        <div id="edge-latency-val" class="metric-value">-- ms</div>
+        <div class="metric-subtext">End-to-End Edge to Upstream</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-header">
+          <span class="metric-label">SYSTEM ARCHITECTURE</span>
+          <span class="metric-icon">🛡️</span>
+        </div>
+        <div class="metric-value" style="font-size: 1.25rem;">Active-Passive</div>
+        <div class="metric-subtext">Automated Multi-Region Failover</div>
+      </div>
+    </section>
+
+    <!-- Multi-Region Comparison (Dual-Column on Desktop/Tablet, Single-Column on Mobile) -->
+    <main class="regions-container">
+      
+      <!-- Region A Card -->
+      <article id="card-region-a" class="region-card is-active">
+        <div class="region-head">
+          <div class="region-title">
+            <h2>Region A (Primary)</h2>
+            <span id="badge-region-a" class="badge-active">ACTIVE</span>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Port :8001</span>
+        </div>
+
+        <div class="status-list">
+          <div class="status-row">
+            <span class="status-key">🟢 Liveness (/healthz)</span>
+            <span id="status-a-alive" class="status-val">Checking...</span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">🎯 Readiness (/readyz)</span>
+            <span id="status-a-ready" class="status-val">Checking...</span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">🚀 GPU Pool State</span>
+            <span id="status-a-pool" class="status-val">--</span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">📚 Vector DB Docs</span>
+            <span id="status-a-vectors" class="status-val">--</span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">📦 Model Weights</span>
+            <span id="status-a-weights" class="status-val">--</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Region B Card -->
+      <article id="card-region-b" class="region-card">
+        <div class="region-head">
+          <div class="region-title">
+            <h2>Region B (Secondary / DR)</h2>
+            <span id="badge-region-b" class="badge-standby">STANDBY</span>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Port :8002</span>
+        </div>
+
+        <div class="status-list">
+          <div class="status-row">
+            <span class="status-key">🟢 Liveness (/healthz)</span>
+            <span id="status-b-alive" class="status-val">Checking...</span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">🎯 Readiness (/readyz)</span>
+            <span id="status-b-ready" class="status-val">Checking...</span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">🚀 GPU Pool State</span>
+            <span id="status-b-pool" class="status-val">--</span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">📚 Vector DB Docs</span>
+            <span id="status-b-vectors" class="status-val">--</span>
+          </div>
+          <div class="status-row">
+            <span class="status-key">📦 Model Weights</span>
+            <span id="status-b-weights" class="status-val">--</span>
+          </div>
+        </div>
+      </article>
+
+    </main>
+
+    <!-- Control & Action Panels -->
+    <section class="panel-grid">
+      
+      <!-- Inference Testing Card -->
+      <div class="panel-card">
+        <h3 class="panel-title"><span>🔍</span> Test Inference Query</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Gửi request truy vấn qua Edge Proxy (Port 8080) để kiểm tra luồng routing thực tế.</p>
+        
+        <form id="infer-form" class="infer-form">
+          <input id="infer-input" type="text" class="input-text" placeholder="Nhập câu hỏi (ví dụ: hoa don thang 7)" value="hoa don thang 7">
+          <button type="submit" class="btn btn-primary">Gửi Query</button>
+        </form>
+
+        <div class="btn-group">
+          <button id="btn-quick-infer" type="button" class="btn btn-outline">🚀 Quick Query Test</button>
+        </div>
+      </div>
+
+      <!-- Disaster Recovery Cutover Controls -->
+      <div class="panel-card">
+        <h3 class="panel-title"><span>🔄</span> Manual Failover Controls</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary);">Chuyển đổi con trỏ DNS Edge Proxy sang Region A hoặc Region B (sẽ có độ trễ TTL DNS).</p>
+        
+        <div class="btn-group">
+          <button id="btn-failover-a" type="button" class="btn btn-outline" style="border-color: var(--color-blue);">
+            🔁 Cutover to Region A
+          </button>
+          <button id="btn-failover-b" type="button" class="btn btn-danger">
+            ⚠️ Cutover to Region B (DR)
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Real-time Logs Console -->
+    <section class="log-card">
+      <div class="log-header">
+        <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-primary);">Live System & Event Logs</span>
+        <button id="btn-clear-logs" type="button" class="btn btn-outline" style="min-height: 28px; padding: 4px 10px; font-size: 0.75rem;">Clear Logs</button>
+      </div>
+      <div id="log-console" class="log-content">
+        <!-- Log items injected via JS -->
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
