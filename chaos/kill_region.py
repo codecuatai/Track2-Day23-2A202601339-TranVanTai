@@ -63,16 +63,45 @@ def is_alive(region: str, timeout=1.5) -> bool:
         return False
 
 
+def find_pid_by_port(port: int) -> int | None:
+    try:
+        import psutil
+        for p in psutil.process_iter(['pid']):
+            if p.pid == 0:
+                continue
+            try:
+                for c in p.net_connections(kind='inet'):
+                    if c.laddr.port == port and c.status == psutil.CONN_LISTEN:
+                        return p.pid
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+    except Exception:
+        pass
+    return None
+
+
 def pid_of(region: str) -> int | None:
     f = PID_DIR / f"region-{region}.pid"
-    if not f.exists():
-        return None
-    pid = int(f.read_text().strip())
-    try:
-        os.kill(pid, 0)
+    if f.exists():
+        try:
+            pid = int(f.read_text().strip())
+            if os.name == "nt":
+                import psutil
+                if psutil.pid_exists(pid):
+                    return pid
+            else:
+                os.kill(pid, 0)
+                return pid
+        except (ValueError, OSError):
+            pass
+    # Fallback to port lookup if pid file is missing or invalid
+    port = 8001 if region == "a" else 8002
+    pid = find_pid_by_port(port)
+    if pid:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(str(pid))
         return pid
-    except OSError:
-        return None
+    return None
 
 
 def kill(region: str, mode: str, backend: str, force_both: bool, mock: bool):
@@ -96,7 +125,15 @@ def kill(region: str, mode: str, backend: str, force_both: bool, mock: bool):
         # netblock: SIGSTOP -> TCP handshake vẫn xong nhưng không ai trả lời => request TREO
         #           (đúng hành vi của iptables DROP ở tầng app)
         # stop    : SIGKILL -> cổng đóng => ConnectError ngay
-        os.kill(pid, signal.SIGSTOP if mode == "netblock" else signal.SIGKILL)
+        if os.name == "nt":
+            import psutil
+            proc = psutil.Process(pid)
+            if mode == "netblock":
+                proc.suspend()
+            else:
+                proc.kill()
+        else:
+            os.kill(pid, signal.SIGSTOP if mode == "netblock" else signal.SIGKILL)
     else:
         svc = f"serving-{region}"
         if mode == "stop":
@@ -111,8 +148,17 @@ def restore(region: str, backend: str):
     if backend == "bare":
         pid = pid_of(region)
         if pid:
-            os.kill(pid, signal.SIGCONT)
-            return event(action="restore", region=region, method="SIGCONT", pid=pid)
+            if os.name == "nt":
+                import psutil
+                try:
+                    psutil.Process(pid).resume()
+                    return event(action="restore", region=region, method="RESUME", pid=pid)
+                except Exception:
+                    return event(action="restore", region=region, method="need_manual_start",
+                                 note="process da bi SIGKILL, chay `make up-bare` lai")
+            else:
+                os.kill(pid, signal.SIGCONT)
+                return event(action="restore", region=region, method="SIGCONT", pid=pid)
         return event(action="restore", region=region, method="need_manual_start",
                      note="process da bi SIGKILL, chay `make up-bare` lai")
     subprocess.run(["docker", "compose", "start", f"serving-{region}"], check=False)
