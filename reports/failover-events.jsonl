@@ -3,7 +3,3 @@
 {"ts": 1787636192.7898808, "iso": "2026-08-25T05:36:32", "step": "3_scale_pool", "target": "b", "pool_state": "full"}
 {"ts": 1787636199.4100535, "iso": "2026-08-25T05:36:39", "step": "4_wait_ready", "target": "b", "waited_s": 6.62, "ready": true}
 {"ts": 1787636199.4140596, "iso": "2026-08-25T05:36:39", "step": "5_dns_cutover", "active_region": "b", "ok": true}
-{"ts": 1787636303.0710535, "iso": "2026-08-25T05:38:23", "step": "1_verify_target", "target": "b", "backend": "fs", "target_state": {"region": "b", "pool_state": "warm"}}
-{"ts": 1787636303.072489, "iso": "2026-08-25T05:38:23", "step": "2_restore_snapshot", "target": "b", "rpo_seconds": 74.06, "docs_lost": 37, "embed_model_version": "test", "snapshot_at": 1787636303.0710535}
-{"ts": 1787636303.0731952, "iso": "2026-08-25T05:38:23", "step": "3_scale_pool", "target": "b", "pool_state": "full"}
-{"ts": 1787636304.0770319, "iso": "2026-08-25T05:38:24", "step": "4_wait_ready", "target": "b", "waited_s": 1.0, "ready": false, "error": "timeout"}
