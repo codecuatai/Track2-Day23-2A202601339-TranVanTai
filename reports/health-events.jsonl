@@ -1,0 +1,2 @@
+{"ts": 1787636189.1556513, "iso": "2026-08-25T05:36:29", "event": "state_change", "region": "a", "to": "UNHEALTHY", "reason": "Timeout", "interval_s": 5.0, "threshold": 3, "consecutive_fails": 3}
+{"ts": 1787636209.3915412, "iso": "2026-08-25T05:36:49", "event": "state_change", "region": "b", "to": "HEALTHY", "reason": "OK", "interval_s": 5.0, "threshold": 3, "consecutive_fails": 0}

@@ -50,7 +50,7 @@ def step(n: int, name: str, **kw) -> dict:
     }
     with LOG.open("a", encoding="utf-8") as f:
         f.write(json.dumps(rec) + "\n")
-    print(f"RUNBOOK [Bước {n}: {name}]", json.dumps(rec))
+    print(f"RUNBOOK [Step {n}: {name}]", json.dumps(rec))
     return rec
 
 
